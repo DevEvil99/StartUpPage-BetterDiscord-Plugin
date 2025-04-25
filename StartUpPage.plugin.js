@@ -244,6 +244,9 @@ class StartUpPage {
                     React.createElement("li", {
                         style: { marginBottom: "10px" }
                     }, "If you selected Group, please fill in the Group ID."),
+                    React.createElement("li", {
+                        style: { marginBottom: "10px" }
+                    }, "Save changes and restart Discord to apply your startup page.")
                 ),
                 React.createElement("h4", {
                     style: {
@@ -261,7 +264,7 @@ class StartUpPage {
                 },
                     React.createElement("li", {
                         style: { marginBottom: "10px" }
-                    }, "Enable Developer Mode (User Settings > Advanced > Developer Mode) to copy IDs by right-clicking users, servers, channels, or group DMs and selecting 'Copy ID' for user, 'Copy Server ID' for server, and 'Copy Channel ID' for group and channel.")
+                    }, "Enable Developer Mode (User Settings > Advanced) to copy IDs by right-clicking users, servers, channels, or group DMs. Then select Copy ID for users, Copy Server ID for servers, and Copy Channel ID for channels and group DMs.")
                 ),
                 React.createElement("h4", {
                     style: {
