@@ -28,12 +28,7 @@ const config = {
     }
 };
 
-const {
-    Data,
-    UI,
-    Webpack,
-    React
-} = BdApi;
+const { Data, UI, Webpack, React } = BdApi;
 
 class StartUpPage {
     constructor() {
@@ -57,8 +52,6 @@ class StartUpPage {
         };
         this.hasNavigated = false;
         this.isActive = false;
-        this.retryCount = 0;
-        this.maxRetries = 3;
     }
 
     loadSettings() {
@@ -79,6 +72,91 @@ class StartUpPage {
         }
     }
 
+    start() {
+        if (this.isActive) return;
+        this.isActive = true;
+        this.navigateToStartupPage();
+    }
+
+    stop() {
+        this.hasNavigated = false;
+        this.isActive = false;
+    }
+
+    navigateToStartupPage() {
+        const targetPath = this.getTargetPagePath();
+        const currentPath = window.location.pathname;
+
+        if (currentPath === targetPath || this.hasNavigated) return;
+
+        this.hasNavigated = true;
+
+
+        const transitionTo = Webpack.getModule(
+            (m) => typeof m === "function" && String(m).includes(`"transitionTo - Transitioning to "`),
+            { searchExports: true }
+        );
+
+        try {
+            if (transitionTo) {
+                transitionTo(targetPath);
+                UI.showToast(`Navigated to ${this.availablePages[this.settings.startupPage] || "Custom Channel"}`, { type: "success" });
+            } else {
+                window.location.pathname = targetPath;
+                UI.showToast(`Using fallback | Navigated to ${this.availablePages[this.settings.startupPage] || "Custom Channel"}`, { type: "success" });
+            }
+        } catch (err) {
+            UI.showToast("Failed to navigate to startup page", { type: "error" });
+        }
+    }
+
+    getTargetPagePath() {
+        const validID = (id) => /^\d+$/.test(id.trim());
+
+        switch (this.settings.startupPage) {
+            case "friends":
+                return "/channels/@me";
+            case "discover":
+                return "/discovery";
+            case "nitro":
+                return "/store";
+            case "shop":
+                return "/shop";
+            case "dm":
+                const dmUserId = this.settings.dmUserId.trim();
+                if (validID(dmUserId)) {
+                    return `/channels/@me/${dmUserId}`;
+                }
+                UI.showToast("Invalid DM user ID, using default page", { type: "error" });
+                return "/channels/@me";
+            case "group":
+                const groupID = this.settings.groupID.trim();
+                if (validID(groupID)) {
+                    return `/channels/@me/${groupID}`;
+                }
+                UI.showToast("Invalid Group ID, using default page", { type: "error" });
+                return "/channels/@me";
+            case "server":
+                const serverId = this.settings.serverId.trim();
+                if (validID(serverId)) {
+                    return `/channels/${serverId}`;
+                }
+                UI.showToast("Invalid server ID, using default page", { type: "error" });
+                return "/channels/@me";
+            case "custom":
+                const customInput = this.settings.customServerChannel.trim();
+                const [customServerId, customChannelId] = customInput.split("/");
+                if (validID(customServerId) && validID(customChannelId)) {
+                    return `/channels/${customServerId}/${customChannelId}`;
+                }
+                UI.showToast("Invalid custom server/channel IDs, using default page", { type: "error" });
+                return "/channels/@me";
+            default:
+                return "/channels/@me";
+        }
+    }
+
+    
     getSettingsPanel() {
         const SettingsContent = () => {
             return React.createElement("div", {
@@ -229,24 +307,12 @@ class StartUpPage {
                         listStyle: "circle"
                     }
                 },
-                    React.createElement("li", {
-                        style: { marginBottom: "10px" }
-                    }, "Select a startup page from the 'Startup Page' dropdown to choose where Discord opens on startup."),
-                    React.createElement("li", {
-                        style: { marginBottom: "10px" }
-                    }, "If you selected Direct Message, please fill in the User ID."),
-                    React.createElement("li", {
-                        style: { marginBottom: "10px" }
-                    }, "If you selected Server, please fill in the Server ID."),
-                    React.createElement("li", {
-                        style: { marginBottom: "10px" }
-                    }, "If you selected Channel, please fill in the Custom Channel."),
-                    React.createElement("li", {
-                        style: { marginBottom: "10px" }
-                    }, "If you selected Group, please fill in the Group ID."),
-                    React.createElement("li", {
-                        style: { marginBottom: "10px" }
-                    }, "Save changes and restart Discord to apply your startup page.")
+                    React.createElement("li", { style: { marginBottom: "10px" } }, "Select a startup page from the 'Startup Page' dropdown to choose where Discord opens on startup."),
+                    React.createElement("li", { style: { marginBottom: "10px" } }, "If you selected Direct Message, please fill in the User ID."),
+                    React.createElement("li", { style: { marginBottom: "10px" } }, "If you selected Server, please fill in the Server ID."),
+                    React.createElement("li", { style: { marginBottom: "10px" } }, "If you selected Channel, please fill in the Custom Channel."),
+                    React.createElement("li", { style: { marginBottom: "10px" } }, "If you selected Group, please fill in the Group ID."),
+                    React.createElement("li", { style: { marginBottom: "10px" } }, "Save changes and restart Discord to apply your startup page.")
                 ),
                 React.createElement("h4", {
                     style: {
@@ -262,9 +328,7 @@ class StartUpPage {
                         listStyle: "circle"
                     }
                 },
-                    React.createElement("li", {
-                        style: { marginBottom: "10px" }
-                    }, "Enable Developer Mode (User Settings > Advanced) to copy IDs by right-clicking users, servers, channels, or group DMs. Then select Copy ID for users, Copy Server ID for servers, and Copy Channel ID for channels and group DMs.")
+                    React.createElement("li", { style: { marginBottom: "10px" } }, "Enable Developer Mode (User Settings > Advanced > Developer Mode) to copy IDs by right-clicking users, servers, channels, or group DMs. Then select Copy ID for users, Copy Server ID for servers, and Copy Channel ID for channels and group DMs.")
                 ),
                 React.createElement("h4", {
                     style: {
@@ -280,53 +344,29 @@ class StartUpPage {
                         listStyle: "circle"
                     }
                 },
-                    React.createElement("li", {
-                        style: { marginBottom: "10px" }
-                    },
-                        React.createElement("strong", null, "Friends: "),
-                        "Opens to the Friends tab, showing your online friends and DMs."
+                    React.createElement("li", { style: { marginBottom: "10px" } },
+                        React.createElement("strong", null, "Friends: "), "Opens to the Friends tab, showing your online friends and DMs."
                     ),
-                    React.createElement("li", {
-                        style: { marginBottom: "10px" }
-                    },
-                        React.createElement("strong", null, "Discover: "),
-                        "Opens to the server discovery page for finding new communities."
+                    React.createElement("li", { style: { marginBottom: "10px" } },
+                        React.createElement("strong", null, "Discover: "), "Opens to the server discovery page for finding new communities."
                     ),
-                    React.createElement("li", {
-                        style: { marginBottom: "10px" }
-                    },
-                        React.createElement("strong", null, "Nitro: "),
-                        "Opens to the Nitro store page for subscription features."
+                    React.createElement("li", { style: { marginBottom: "10px" } },
+                        React.createElement("strong", null, "Nitro: "), "Opens to the Nitro store page for subscription features."
                     ),
-                    React.createElement("li", {
-                        style: { marginBottom: "10px" }
-                    },
-                        React.createElement("strong", null, "Shop: "),
-                        "Opens to the Discord shop for purchasing avatar frames and etc."
+                    React.createElement("li", { style: { marginBottom: "10px" } },
+                        React.createElement("strong", null, "Shop: "), "Opens to the Discord shop for purchasing avatar frames and etc."
                     ),
-                    React.createElement("li", {
-                        style: { marginBottom: "10px" }
-                    },
-                        React.createElement("strong", null, "Direct Message: "),
-                        "Opens to a specific DM with a user. Requires User ID."
+                    React.createElement("li", { style: { marginBottom: "10px" } },
+                        React.createElement("strong", null, "Direct Message: "), "Opens to a specific DM with a user. Requires User ID."
                     ),
-                    React.createElement("li", {
-                        style: { marginBottom: "10px" }
-                    },
-                        React.createElement("strong", null, "Server: "),
-                        "Opens to a specific server. Requires Server ID."
+                    React.createElement("li", { style: { marginBottom: "10px" } },
+                        React.createElement("strong", null, "Server: "), "Opens to a specific server. Requires Server ID."
                     ),
-                    React.createElement("li", {
-                        style: { marginBottom: "10px" }
-                    },
-                        React.createElement("strong", null, "Custom Channel: "),
-                        "Opens to a specific channel in a server. Requires Server and Channel IDs in the format 'ServerID/ChannelID'."
+                    React.createElement("li", { style: { marginBottom: "10px" } },
+                        React.createElement("strong", null, "Custom Channel: "), "Opens to a specific channel in a server. Requires Server and Channel IDs in the format 'ServerID/ChannelID'."
                     ),
-                    React.createElement("li", {
-                        style: { marginBottom: "10px" }
-                    },
-                        React.createElement("strong", null, "Group: "),
-                        "Opens to a specific group DM. Requires a Group ID."
+                    React.createElement("li", { style: { marginBottom: "10px" } },
+                        React.createElement("strong", null, "Group: "), "Opens to a specific group DM. Requires a Group ID."
                     )
                 )
             );
@@ -340,103 +380,6 @@ class StartUpPage {
                 cancelText: null
             }
         );
-    }
-
-    start() {
-        if (this.isActive) return;
-        this.isActive = true;
-        this.setupRedirect();
-    }
-
-    stop() {
-        this.hasNavigated = false;
-        this.isActive = false;
-        this.retryCount = 0;
-    }
-
-    setupRedirect() {
-        const attemptRedirect = () => {
-            try {
-                if (this.hasNavigated || this.retryCount >= this.maxRetries || !this.isActive) return;
-
-                const currentPath = window.location.pathname;
-                const targetPath = this.getTargetPagePath();
-                if (currentPath !== targetPath && !this.hasNavigated) {
-                    this.hasNavigated = true;
-                    this.retryCount = 0;
-                    this.navigateTo(targetPath);
-                    UI.showToast(`Redirected to ${this.availablePages[this.settings.startupPage] || "Custom Channel"}`, { type: "success" });
-                } else {
-                    this.retryCount++;
-                    if (this.retryCount < this.maxRetries) {
-                        setTimeout(attemptRedirect, 1000);
-                    }
-                }
-            } catch (err) {
-                UI.showToast("Failed to redirect", { type: "error" });
-                this.retryCount++;
-                if (this.retryCount < this.maxRetries) {
-                    setTimeout(attemptRedirect, 1000);
-                }
-            }
-        };
-
-        setTimeout(attemptRedirect, 2000);
-    }
-
-    navigateTo(path) {
-        const Router = Webpack.getModule(m => m.transitionTo && typeof m.transitionTo === "function");
-        if (Router) {
-            Router.transitionTo(path);
-        } else {
-            window.location.pathname = path;
-        }
-    }
-
-    getTargetPagePath() {
-        const validID = (id) => /^\d+$/.test(id.trim());
-
-        switch (this.settings.startupPage) {
-            case "friends":
-                return "/channels/@me";
-            case "discover":
-                return "/discovery";
-            case "nitro":
-                return "/store";
-            case "shop":
-                return "/shop";
-            case "dm":
-                const dmUserId = this.settings.dmUserId.trim();
-                if (validID(dmUserId)) {
-                    return `/channels/@me/${dmUserId}`;
-                }
-                UI.showToast("Invalid DM user ID, using default page", { type: "error" });
-                return "/channels/@me";
-            case "group":
-                const groupID = this.settings.groupID.trim();
-                if (validID(groupID)) {
-                    return `/channels/@me/${groupID}`;
-                }
-                UI.showToast("Invalid Group ID, using default page", { type: "error" });
-                return "/channels/@me";
-            case "server":
-                const serverId = this.settings.serverId.trim();
-                if (validID(serverId)) {
-                    return `/channels/${serverId}`;
-                }
-                UI.showToast("Invalid server ID, using default page", { type: "error" });
-                return "/channels/@me";
-            case "custom":
-                const customInput = this.settings.customServerChannel.trim();
-                const [customServerId, customChannelId] = customInput.split("/");
-                if (validID(customServerId) && validID(customChannelId)) {
-                    return `/channels/${customServerId}/${customChannelId}`;
-                }
-                UI.showToast("Invalid custom server/channel IDs, using default page", { type: "error" });
-                return "/channels/@me";
-            default:
-                return "/channels/@me";
-        }
     }
 
     showChangelog() {
