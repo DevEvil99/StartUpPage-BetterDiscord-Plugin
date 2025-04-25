@@ -19,7 +19,7 @@
 ![startup](https://github.com/user-attachments/assets/06854d4e-856e-4e48-8349-f55a0c157bda)
 
 # How to get IDs
-- Enable Developer Mode (User Settings > Advanced > Developer Mode) to copy IDs by right-clicking users, servers, channels, or group DMs and selecting 'Copy ID' for user, 'Copy Server ID' for server, and 'Copy Channel ID' for group and channel.
+- Enable Developer Mode (User Settings > Advanced > Developer Mode) to copy IDs by right-clicking users, servers, channels, or group DMs. Then select Copy ID for users, Copy Server ID for servers, and Copy Channel ID for channels and group DMs.
 
 ![image](https://github.com/user-attachments/assets/ec81bd22-079c-473d-9094-77ca0855dea0)
 
