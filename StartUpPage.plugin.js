@@ -445,7 +445,7 @@ class StartUpPage {
                 title: "Version 1.0",
                 type: "added",
                 items: [
-                    "Hello World! Thank you for using it."
+                    "Hello World! Thank you for StartUpPage."
                 ]
             }
         ];
