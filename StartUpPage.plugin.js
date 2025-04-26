@@ -36,15 +36,15 @@ class StartUpPage {
             startupPage: "friends",
             dmChannelId: "",
             serverId: "",
-            customServerChannel: "",
-            groupID: ""
+            channelServerId: "",
+            channelChannelId: ""
         };
         this.settings = this.loadSettings();
         this.availablePages = {
             "friends": "Friends",
             "dm": "Direct Message/Group",
             "server": "Server",
-            "custom": "Custom Channel",
+            "channel": "Channel",
             "discover": "Discover",
             "nitro": "Nitro",
             "shop": "Shop"
@@ -75,6 +75,7 @@ class StartUpPage {
         if (this.isActive) return;
         this.isActive = true;
         this.navigateToStartupPage();
+        this.showChangelogIfNeeded();
     }
 
     stop() {
@@ -90,7 +91,6 @@ class StartUpPage {
 
         this.hasNavigated = true;
 
-
         const transitionTo = Webpack.getModule(
             (m) => typeof m === "function" && String(m).includes(`"transitionTo - Transitioning to "`),
             { searchExports: true }
@@ -99,10 +99,10 @@ class StartUpPage {
         try {
             if (transitionTo) {
                 transitionTo(targetPath);
-                UI.showToast(`Navigated to ${this.availablePages[this.settings.startupPage] || "Custom Channel"}`, { type: "success" });
+                UI.showToast(`Navigated to ${this.availablePages[this.settings.startupPage] || "Channel"}`, { type: "success" });
             } else {
                 window.location.pathname = targetPath;
-                UI.showToast(`Using fallback | Navigated to ${this.availablePages[this.settings.startupPage] || "Custom Channel"}`, { type: "success" });
+                UI.showToast(`Using fallback | Navigated to ${this.availablePages[this.settings.startupPage] || "Channel"}`, { type: "success" });
             }
         } catch (err) {
             UI.showToast("Failed to navigate to startup page", { type: "error" });
@@ -135,21 +135,27 @@ class StartUpPage {
                 }
                 UI.showToast("Invalid server ID, using default page", { type: "error" });
                 return "/channels/@me";
-            case "custom":
-                const customInput = this.settings.customServerChannel.trim();
-                const [customServerId, customChannelId] = customInput.split("/");
-                if (validID(customServerId) && validID(customChannelId)) {
-                    return `/channels/${customServerId}/${customChannelId}`;
+            case "channel":
+                const channelServerId = this.settings.channelServerId.trim();
+                const channelChannelId = this.settings.channelChannelId.trim();
+                if (validID(channelServerId) && validID(channelChannelId)) {
+                    return `/channels/${channelServerId}/${channelChannelId}`;
                 }
-                UI.showToast("Invalid custom server/channel IDs, using default page", { type: "error" });
+                UI.showToast("Invalid server or channel ID, using default page", { type: "error" });
                 return "/channels/@me";
             default:
                 return "/channels/@me";
         }
     }
 
-    
     getSettingsPanel() {
+        const GuildStore = Webpack.getModule(m => m.getGuilds && m.getGuild);
+        const guilds = GuildStore ? GuildStore.getGuilds() : {};
+        const serverOptions = Object.values(guilds).map(guild => ({
+            label: guild.name,
+            value: guild.id
+        }));
+
         const SettingsContent = () => {
             return React.createElement("div", {
                 style: { position: "relative" }
@@ -179,7 +185,7 @@ class StartUpPage {
                             type: "dropdown",
                             id: "startupPage",
                             name: "Startup Page",
-                            note: "Choose which page Discord opens to on startup. | Please read the guide by clicking on ?.",
+                            note: "Select the page Discord opens to when you launch the app. Click the ? icon for detailed instructions.",
                             value: this.settings.startupPage,
                             options: Object.entries(this.availablePages).map(([value, label]) => ({ label, value })),
                             onChange: (value) => {
@@ -190,17 +196,17 @@ class StartUpPage {
                         {
                             type: "category",
                             id: "userID",
-                            name: "Direct Message",
+                            name: "Direct Message/Group Category",
                             collapsible: true,
                             shown: false,
                             settings: [
                                 {
                                     type: "text",
                                     id: "dmChannelId",
-                                    name: "Direct Message's Channel ID",
-                                    note: "Enter the Channel ID for a specific DM (e.g., 850270898756911144). Only used if 'Direct Message' is selected above.",
+                                    name: "DM/Group Channel ID",
+                                    note: "Enter the Channel ID for a specific Direct Message or Group (e.g., 850270898756911144). Only applies if \"Direct Message/Group\" is selected as the Startup Page.",
                                     value: this.settings.dmChannelId,
-                                    placeholder: "Direct Message's Channel ID",
+                                    placeholder: "Channel ID",
                                     onChange: (value) => {
                                         this.settings.dmChannelId = value;
                                         this.saveSettings();
@@ -211,17 +217,17 @@ class StartUpPage {
                         {
                             type: "category",
                             id: "serverID",
-                            name: "Server",
+                            name: "Server Category",
                             collapsible: true,
                             shown: false,
                             settings: [
                                 {
-                                    type: "text",
+                                    type: "dropdown",
                                     id: "serverId",
-                                    name: "Server ID",
-                                    note: "Enter the server ID (e.g., 763094597454397490). Only used if 'Server' is selected above.",
+                                    name: "Server Selection",
+                                    note: "Choose a server to open on startup from the dropdown. Only applies if \"Server\" is selected as the Startup Page. Your joined servers are automatically listed.",
                                     value: this.settings.serverId,
-                                    placeholder: "Server ID",
+                                    options: serverOptions.length ? serverOptions : [{ label: "No servers available", value: "" }],
                                     onChange: (value) => {
                                         this.settings.serverId = value;
                                         this.saveSettings();
@@ -232,19 +238,31 @@ class StartUpPage {
                         {
                             type: "category",
                             id: "server_channelID",
-                            name: "Custom Channel",
+                            name: "Channel Category",
                             collapsible: true,
                             shown: false,
                             settings: [
                                 {
-                                    type: "text",
-                                    id: "customServerChannel",
-                                    name: "Channel ID",
-                                    note: "Enter the server and channel IDs (e.g., 763094597454397490/844622406157205584). Only used if 'Custom Channel' is selected above.",
-                                    value: this.settings.customServerChannel,
-                                    placeholder: "ServerID/ChannelID",
+                                    type: "dropdown",
+                                    id: "channelServerId",
+                                    name: "Server Selection",
+                                    note: "Choose the server containing the channel you want to open on startup. Only applies if \"Channel\" is selected as the Startup Page.",
+                                    value: this.settings.channelServerId,
+                                    options: serverOptions.length ? serverOptions : [{ label: "No servers available", value: "" }],
                                     onChange: (value) => {
-                                        this.settings.customServerChannel = value;
+                                        this.settings.channelServerId = value;
+                                        this.saveSettings();
+                                    }
+                                },
+                                {
+                                    type: "text",
+                                    id: "channelChannelId",
+                                    name: "Channel ID",
+                                    note: "Enter the Channel ID for a specific channel in the selected server (e.g., 844622406157205584). Only applies if \"Channel\" is selected as the Startup Page.",
+                                    value: this.settings.channelChannelId,
+                                    placeholder: "Channel ID",
+                                    onChange: (value) => {
+                                        this.settings.channelChannelId = value;
                                         this.saveSettings();
                                     }
                                 }
@@ -278,10 +296,10 @@ class StartUpPage {
                         listStyle: "circle"
                     }
                 },
-                    React.createElement("li", { style: { marginBottom: "10px" } }, "Select a startup page from the 'Startup Page' dropdown to choose where Discord opens on startup."),
-                    React.createElement("li", { style: { marginBottom: "10px" } }, "If you selected Direct Message/Group in 'Startup Page', please fill in the 'Direct Message' section."),
-                    React.createElement("li", { style: { marginBottom: "10px" } }, "If you selected Server in 'Startup Page', please fill in the 'Server' section."),
-                    React.createElement("li", { style: { marginBottom: "10px" } }, "If you selected Custom Channel in 'Startup Page', please fill in the 'Custom Channel' section."),
+                    React.createElement("li", { style: { marginBottom: "10px" } }, "Select your preferred startup page from the \"Startup Page\" dropdown to customize where Discord opens on launch."),
+                    React.createElement("li", { style: { marginBottom: "10px" } }, "For \"Direct Message/Group,\" enter the Channel ID in the \"Direct Message/Group Category\" section."),
+                    React.createElement("li", { style: { marginBottom: "10px" } }, "For \"Server,\" choose a server from the dropdown in the \"Server Category\" section."),
+                    React.createElement("li", { style: { marginBottom: "10px" } }, "For \"Channel,\" select a server and enter the Channel ID in the \"Channel Category\" section."),
                     React.createElement("li", { style: { marginBottom: "10px" } }, "Save changes and restart Discord to apply your startup page.")
                 ),
                 React.createElement("h4", {
@@ -298,7 +316,7 @@ class StartUpPage {
                         listStyle: "circle"
                     }
                 },
-                    React.createElement("li", { style: { marginBottom: "10px" } }, "Enable Developer Mode (User Settings > Advanced > Developer Mode) to copy IDs by right-clicking users, servers, channels, or group DMs. Then select Copy Server ID for servers, and Copy Channel ID for channels, dms and groups.")
+                    React.createElement("li", { style: { marginBottom: "10px" } }, "Enable Developer Mode (User Settings > Advanced > Developer Mode) to copy IDs by right-clicking users, servers, channels, or group DMs. Then select \"Copy Server ID\" for servers, and \"Copy Channel ID\" for channels, dms and groups.")
                 ),
                 React.createElement("h4", {
                     style: {
@@ -315,25 +333,25 @@ class StartUpPage {
                     }
                 },
                     React.createElement("li", { style: { marginBottom: "10px" } },
-                        React.createElement("strong", null, "Friends: "), "Opens to the Friends tab, showing your online friends and DMs."
+                        React.createElement("strong", null, "Friends: "), "Opens the Friends tab, displaying your online friends and Direct Messages."
                     ),
                     React.createElement("li", { style: { marginBottom: "10px" } },
-                        React.createElement("strong", null, "Direct Message: "), "Opens to a specific DM with a user. Requires Channel ID."
+                        React.createElement("strong", null, "Direct Message/Group: "), "Opens a specific Direct Message or Group."
                     ),
                     React.createElement("li", { style: { marginBottom: "10px" } },
-                        React.createElement("strong", null, "Server: "), "Opens to a specific server. Requires Server ID."
+                        React.createElement("strong", null, "Server: "), "Opens a specific server."
                     ),
                     React.createElement("li", { style: { marginBottom: "10px" } },
-                        React.createElement("strong", null, "Custom Channel: "), "Opens to a specific channel in a server. Requires Server and Channel IDs in the format 'ServerID/ChannelID'."
+                        React.createElement("strong", null, "Channel: "), "Opens a specific channel within a server."
                     ),
                     React.createElement("li", { style: { marginBottom: "10px" } },
-                        React.createElement("strong", null, "Discover: "), "Opens to the server discovery page for finding new communities."
+                        React.createElement("strong", null, "Discover: "), "Opens to the Server Discovery page for finding new communities."
                     ),
                     React.createElement("li", { style: { marginBottom: "10px" } },
                         React.createElement("strong", null, "Nitro: "), "Opens to the Nitro store page for subscription features."
                     ),
                     React.createElement("li", { style: { marginBottom: "10px" } },
-                        React.createElement("strong", null, "Shop: "), "Opens to the Discord shop for purchasing avatar frames and etc."
+                        React.createElement("strong", null, "Shop: "), "Opens to the Discord shop for purchasing avatar decoration, profile effect, and etc."
                     )
                 )
             );
@@ -385,9 +403,5 @@ class StartUpPage {
 module.exports = class extends StartUpPage {
     constructor() {
         super();
-    }
-
-    load() {
-        this.showChangelogIfNeeded();
     }
 };
