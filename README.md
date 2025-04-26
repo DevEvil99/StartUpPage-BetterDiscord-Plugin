@@ -6,19 +6,20 @@
 </div>
 <br>
 
-<video src="https://github.com/user-attachments/assets/4901dda2-a28c-463b-b768-86ec100c1a00"></video>
+<video src="https://github.com/user-attachments/assets/ff4b8a7c-47ba-4f7d-a539-017e95833425"></video>
+
 
 # How to use StartUpPage
-- Select a startup page from the 'Startup Page' dropdown to choose where Discord opens on startup.
-- If you selected Direct Message/Group in 'Startup Page', please fill in the 'Direct Message' section.
-- If you selected Server in 'Startup Page', please fill in the 'Server' section.
-- If you selected Custom Channel in 'Startup Page', please fill in the 'Custom Channel' section.
+- Select your preferred startup page from the "Startup Page" dropdown to customize where Discord opens on launch.
+- For "Direct Message/Group," enter the Channel ID in the "Direct Message/Group Category" section.
+- For "Server," choose a server from the dropdown in the "Server Category" section.
+- For "Channel," select a server and enter the Channel ID in the "Channel Category" section.
 - Save changes and restart Discord to apply your startup page.
 
 ![image](https://github.com/user-attachments/assets/d70f1def-2c87-46d2-a67e-fa3bd67f22c0)
 
 # How to get IDs
-- Enable Developer Mode (User Settings > Advanced > Developer Mode) to copy IDs by right-clicking users, servers, channels, or group DMs. Then select Copy Server ID for servers, and Copy Channel ID for channels, dms and groups.
+- Enable Developer Mode (User Settings > Advanced > Developer Mode) to copy IDs by right-clicking users, servers, channels, or group DMs. Then select "Copy Server ID" for servers, and "Copy Channel ID" for channels, dms and groups.
 
 ![image](https://github.com/user-attachments/assets/ec81bd22-079c-473d-9094-77ca0855dea0)
 
