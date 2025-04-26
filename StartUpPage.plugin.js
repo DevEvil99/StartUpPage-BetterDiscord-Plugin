@@ -34,7 +34,7 @@ class StartUpPage {
     constructor() {
         this.defaultSettings = {
             startupPage: "friends",
-            dmUserId: "",
+            dmChannelId: "",
             serverId: "",
             customServerChannel: "",
             groupID: ""
@@ -42,13 +42,12 @@ class StartUpPage {
         this.settings = this.loadSettings();
         this.availablePages = {
             "friends": "Friends",
+            "dm": "Direct Message/Group",
+            "server": "Server",
+            "custom": "Custom Channel",
             "discover": "Discover",
             "nitro": "Nitro",
-            "shop": "Shop",
-            "dm": "Direct Message",
-            "group": "Group",
-            "server": "Server",
-            "custom": "Custom Channel"
+            "shop": "Shop"
         };
         this.hasNavigated = false;
         this.isActive = false;
@@ -123,18 +122,11 @@ class StartUpPage {
             case "shop":
                 return "/shop";
             case "dm":
-                const dmUserId = this.settings.dmUserId.trim();
-                if (validID(dmUserId)) {
-                    return `/channels/@me/${dmUserId}`;
+                const dmChannelId = this.settings.dmChannelId.trim();
+                if (validID(dmChannelId)) {
+                    return `/channels/@me/${dmChannelId}`;
                 }
-                UI.showToast("Invalid DM user ID, using default page", { type: "error" });
-                return "/channels/@me";
-            case "group":
-                const groupID = this.settings.groupID.trim();
-                if (validID(groupID)) {
-                    return `/channels/@me/${groupID}`;
-                }
-                UI.showToast("Invalid Group ID, using default page", { type: "error" });
+                UI.showToast("Invalid DM channel ID, using default page", { type: "error" });
                 return "/channels/@me";
             case "server":
                 const serverId = this.settings.serverId.trim();
@@ -198,19 +190,19 @@ class StartUpPage {
                         {
                             type: "category",
                             id: "userID",
-                            name: "User ID",
+                            name: "Direct Message",
                             collapsible: true,
                             shown: false,
                             settings: [
                                 {
                                     type: "text",
-                                    id: "dmUserId",
-                                    name: "User ID",
-                                    note: "Enter the user ID for a specific DM (e.g., 468132563714703390). Only used if 'Direct Message' is selected above.",
-                                    value: this.settings.dmUserId,
-                                    placeholder: "User ID",
+                                    id: "dmChannelId",
+                                    name: "Direct Message's Channel ID",
+                                    note: "Enter the Channel ID for a specific DM (e.g., 850270898756911144). Only used if 'Direct Message' is selected above.",
+                                    value: this.settings.dmChannelId,
+                                    placeholder: "Direct Message's Channel ID",
                                     onChange: (value) => {
-                                        this.settings.dmUserId = value;
+                                        this.settings.dmChannelId = value;
                                         this.saveSettings();
                                     }
                                 }
@@ -219,7 +211,7 @@ class StartUpPage {
                         {
                             type: "category",
                             id: "serverID",
-                            name: "Server ID",
+                            name: "Server",
                             collapsible: true,
                             shown: false,
                             settings: [
@@ -257,27 +249,6 @@ class StartUpPage {
                                     }
                                 }
                             ]
-                        },
-                        {
-                            type: "category",
-                            id: "groupID_option",
-                            name: "Group ID",
-                            collapsible: true,
-                            shown: false,
-                            settings: [
-                                {
-                                    type: "text",
-                                    id: "groupID",
-                                    name: "Group ID",
-                                    note: "Enter the ID for a group DM. Only used if 'Group' is selected above.",
-                                    value: this.settings.groupID,
-                                    placeholder: "Group ID",
-                                    onChange: (value) => {
-                                        this.settings.groupID = value;
-                                        this.saveSettings();
-                                    }
-                                }
-                            ]
                         }
                     ],
                     onChange: (category, id, name, value) => {
@@ -308,10 +279,9 @@ class StartUpPage {
                     }
                 },
                     React.createElement("li", { style: { marginBottom: "10px" } }, "Select a startup page from the 'Startup Page' dropdown to choose where Discord opens on startup."),
-                    React.createElement("li", { style: { marginBottom: "10px" } }, "If you selected Direct Message, please fill in the User ID."),
-                    React.createElement("li", { style: { marginBottom: "10px" } }, "If you selected Server, please fill in the Server ID."),
-                    React.createElement("li", { style: { marginBottom: "10px" } }, "If you selected Channel, please fill in the Custom Channel."),
-                    React.createElement("li", { style: { marginBottom: "10px" } }, "If you selected Group, please fill in the Group ID."),
+                    React.createElement("li", { style: { marginBottom: "10px" } }, "If you selected Direct Message/Group in 'Startup Page', please fill in the 'Direct Message' section."),
+                    React.createElement("li", { style: { marginBottom: "10px" } }, "If you selected Server in 'Startup Page', please fill in the 'Server' section."),
+                    React.createElement("li", { style: { marginBottom: "10px" } }, "If you selected Custom Channel in 'Startup Page', please fill in the 'Custom Channel' section."),
                     React.createElement("li", { style: { marginBottom: "10px" } }, "Save changes and restart Discord to apply your startup page.")
                 ),
                 React.createElement("h4", {
@@ -328,7 +298,7 @@ class StartUpPage {
                         listStyle: "circle"
                     }
                 },
-                    React.createElement("li", { style: { marginBottom: "10px" } }, "Enable Developer Mode (User Settings > Advanced > Developer Mode) to copy IDs by right-clicking users, servers, channels, or group DMs. Then select Copy ID for users, Copy Server ID for servers, and Copy Channel ID for channels and group DMs.")
+                    React.createElement("li", { style: { marginBottom: "10px" } }, "Enable Developer Mode (User Settings > Advanced > Developer Mode) to copy IDs by right-clicking users, servers, channels, or group DMs. Then select Copy Server ID for servers, and Copy Channel ID for channels, dms and groups.")
                 ),
                 React.createElement("h4", {
                     style: {
@@ -348,16 +318,7 @@ class StartUpPage {
                         React.createElement("strong", null, "Friends: "), "Opens to the Friends tab, showing your online friends and DMs."
                     ),
                     React.createElement("li", { style: { marginBottom: "10px" } },
-                        React.createElement("strong", null, "Discover: "), "Opens to the server discovery page for finding new communities."
-                    ),
-                    React.createElement("li", { style: { marginBottom: "10px" } },
-                        React.createElement("strong", null, "Nitro: "), "Opens to the Nitro store page for subscription features."
-                    ),
-                    React.createElement("li", { style: { marginBottom: "10px" } },
-                        React.createElement("strong", null, "Shop: "), "Opens to the Discord shop for purchasing avatar frames and etc."
-                    ),
-                    React.createElement("li", { style: { marginBottom: "10px" } },
-                        React.createElement("strong", null, "Direct Message: "), "Opens to a specific DM with a user. Requires User ID."
+                        React.createElement("strong", null, "Direct Message: "), "Opens to a specific DM with a user. Requires Channel ID."
                     ),
                     React.createElement("li", { style: { marginBottom: "10px" } },
                         React.createElement("strong", null, "Server: "), "Opens to a specific server. Requires Server ID."
@@ -366,7 +327,13 @@ class StartUpPage {
                         React.createElement("strong", null, "Custom Channel: "), "Opens to a specific channel in a server. Requires Server and Channel IDs in the format 'ServerID/ChannelID'."
                     ),
                     React.createElement("li", { style: { marginBottom: "10px" } },
-                        React.createElement("strong", null, "Group: "), "Opens to a specific group DM. Requires a Group ID."
+                        React.createElement("strong", null, "Discover: "), "Opens to the server discovery page for finding new communities."
+                    ),
+                    React.createElement("li", { style: { marginBottom: "10px" } },
+                        React.createElement("strong", null, "Nitro: "), "Opens to the Nitro store page for subscription features."
+                    ),
+                    React.createElement("li", { style: { marginBottom: "10px" } },
+                        React.createElement("strong", null, "Shop: "), "Opens to the Discord shop for purchasing avatar frames and etc."
                     )
                 )
             );
