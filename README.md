@@ -7,7 +7,7 @@
 <br>
 
 <video src="https://github.com/user-attachments/assets/ff4b8a7c-47ba-4f7d-a539-017e95833425"></video>
-
+*If the video preview doesn't appear or load for you, you can watch it directly by [clicking here](https://github.com/user-attachments/assets/ff4b8a7c-47ba-4f7d-a539-017e95833425)*
 
 # How to use StartUpPage
 - Select your preferred startup page from the "Startup Page" dropdown to customize where Discord opens on launch.
