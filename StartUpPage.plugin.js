@@ -1,6 +1,6 @@
 /**
  * @name StartUpPage
- * @version 1.0
+ * @version 1.1
  * @description StartUpPage lets you choose which page Discord opens to on startup.
  * @author DevEvil
  * @website https://devevil.com
@@ -14,7 +14,7 @@
 const config = {
     info: {
         name: "StartUpPage",
-        version: "1.0",
+        version: "1.1",
         description: "StartUpPage lets you choose which page Discord opens to on startup.",
         authors: [{
             name: "DevEvil",
@@ -37,7 +37,8 @@ class StartUpPage {
             dmChannelId: "",
             serverId: "",
             channelServerId: "",
-            channelChannelId: ""
+            channelChannelId: "",
+            discoveryPage: "servers"
         };
         this.settings = this.loadSettings();
         this.availablePages = {
@@ -91,10 +92,7 @@ class StartUpPage {
 
         this.hasNavigated = true;
 
-        const transitionTo = Webpack.getModule(
-            (m) => typeof m === "function" && String(m).includes(`"transitionTo - Transitioning to "`),
-            { searchExports: true }
-        );
+        const transitionTo = Webpack.getByStrings(["transitionTo - Transitioning to"],{ searchExports: true });
 
         try {
             if (transitionTo) {
@@ -116,7 +114,16 @@ class StartUpPage {
             case "friends":
                 return "/channels/@me";
             case "discover":
-                return "/discovery";
+                switch (this.settings.discoveryPage) {
+                    case "servers":
+                        return "/discovery/servers";
+                    case "applications":
+                        return "/discovery/applications";
+                    case "quests":
+                        return "/discovery/quests";
+                    default:
+                        return "/discovery/servers";
+                }
             case "nitro":
                 return "/store";
             case "shop":
@@ -267,6 +274,31 @@ class StartUpPage {
                                     }
                                 }
                             ]
+                        },
+                        {
+                            type: "category",
+                            id: "discovery_options",
+                            name: "Discovery Page",
+                            collapsible: true,
+                            shown: false,
+                            settings: [
+                                {
+                                    type: "radio",
+                                    id: "discoveryPage",
+                                    name: "Discovery Page",
+                                    note: "Choose which discovery page to load when using \"Discover\" as your startup page.",
+                                    value: this.settings.discoveryPage,
+                                    options: [
+                                        { name: "Servers", value: "servers" },
+                                        { name: "Applications", value: "applications" },
+                                        { name: "Quests", value: "quests" }
+                                    ],
+                                    onChange: (value) => {
+                                        this.settings.discoveryPage = value;
+                                        this.saveSettings();
+                                    }
+                                }
+                            ]
                         }
                     ],
                     onChange: (category, id, name, value) => {
@@ -369,6 +401,13 @@ class StartUpPage {
 
     showChangelog() {
         const changes = [
+            {
+                title: "Version 1.1",
+                type: "added",
+                items: [
+                    "Added a \"Discovery Page\" setting that allows you to choose which specific discovery page(Servers, Applications, Quests) loads when \"Discover\" is set as the startup page."
+                ]
+            },
             {
                 title: "Version 1.0",
                 type: "added",
