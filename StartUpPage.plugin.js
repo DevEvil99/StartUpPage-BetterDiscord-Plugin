@@ -1,6 +1,6 @@
 /**
  * @name StartUpPage
- * @version 1.1
+ * @version 1.2
  * @description StartUpPage lets you choose which page Discord opens to on startup.
  * @author DevEvil
  * @website https://devevil.com
@@ -14,7 +14,7 @@
 const config = {
     info: {
         name: "StartUpPage",
-        version: "1.1",
+        version: "1.2",
         description: "StartUpPage lets you choose which page Discord opens to on startup.",
         authors: [{
             name: "DevEvil",
@@ -38,7 +38,8 @@ class StartUpPage {
             serverId: "",
             channelServerId: "",
             channelChannelId: "",
-            discoveryPage: "servers"
+            discoveryPage: "servers",
+            settingsPage: "account"
         };
         this.settings = this.loadSettings();
         this.availablePages = {
@@ -46,6 +47,8 @@ class StartUpPage {
             "dm": "Direct Message/Group",
             "server": "Server",
             "channel": "Channel",
+            "settings": "Settings",
+            "family": "Family Center",
             "discover": "Discover",
             "nitro": "Nitro",
             "shop": "Shop"
@@ -124,6 +127,27 @@ class StartUpPage {
                     default:
                         return "/discovery/servers";
                 }
+            case "settings":
+                switch (this.settings.settingsPage) {
+                    case "account":
+                        return "/settings/account";
+                    case "profiles":
+                        return "/settings/profile-customization";
+                    case "appearance":
+                        return "/settings/appearance";
+                    case "accessibility":
+                        return "/settings/accessibility";
+                    case "family-settings":
+                        return "/settings/family-center";
+                    case "devices":
+                        return "/settings/sessions";
+                    case "subs":
+                        return "/settings/subscriptions";
+                    default:
+                        return "/settings/account";
+                }
+            case "family":
+                return "/family-center";
             case "nitro":
                 return "/store";
             case "shop":
@@ -299,6 +323,35 @@ class StartUpPage {
                                     }
                                 }
                             ]
+                        },
+                        {
+                            type: "category",
+                            id: "settings_options",
+                            name: "Settings Page",
+                            collapsible: true,
+                            shown: false,
+                            settings: [
+                                {
+                                    type: "radio",
+                                    id: "settingsPage",
+                                    name: "Settings Page",
+                                    note: "Choose which settings page to load when using \"Settings\" as your startup page.",
+                                    value: this.settings.settingsPage,
+                                    options: [
+                                        { name: "My Account", value: "account" },
+                                        { name: "Profiles", value: "profiles" },
+                                        { name: "Family Center", value: "family-settings" },
+                                        { name: "Devices", value: "devices" },
+                                        { name: "Subscriptions", value: "subs" },
+                                        { name: "Appearance", value: "appearance" },
+                                        { name: "Accessibility", value: "accessibility" }
+                                    ],
+                                    onChange: (value) => {
+                                        this.settings.settingsPage = value;
+                                        this.saveSettings();
+                                    }
+                                }
+                            ]
                         }
                     ],
                     onChange: (category, id, name, value) => {
@@ -401,6 +454,14 @@ class StartUpPage {
 
     showChangelog() {
         const changes = [
+            {
+                title: "Version 1.2",
+                type: "added",
+                items: [
+                    "Added **Settings** and **Family Center** as new startup page options.",
+                    "Added a \"Settings Page\" setting that allows you to choose which specific settings page loads when \"Settings\" is set as the startup page."
+                ]
+            },
             {
                 title: "Version 1.1",
                 type: "added",
