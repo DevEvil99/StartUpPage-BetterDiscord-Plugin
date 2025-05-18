@@ -15,7 +15,8 @@
 - For "Channel," select a server and enter the Channel ID in the "Channel Category" section.
 - Save changes and restart Discord to apply your startup page.
 
-![image](https://github.com/user-attachments/assets/5356adb7-41b6-430b-861a-deb8161e8030)
+![image](https://github.com/user-attachments/assets/7f943910-15f5-4f59-8b1c-4a7ae33fb753)
+
 
 # How to get IDs
 - Enable Developer Mode (User Settings > Advanced > Developer Mode) to copy IDs by right-clicking users, servers, channels, or group DMs. Then select "Copy Server ID" for servers, and "Copy Channel ID" for channels, dms and groups.
