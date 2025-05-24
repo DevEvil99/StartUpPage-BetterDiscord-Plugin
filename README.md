@@ -23,7 +23,7 @@
 
 ![image](https://github.com/user-attachments/assets/ec81bd22-079c-473d-9094-77ca0855dea0)
 
-## Links 🔗
+## Links 
 - [Download](https://betterdiscord.app/plugin/StartUpPage)
 - [Changelog](https://github.com/DevEvil99/StartUpPage-BetterDiscord-Plugin/blob/main/CHANGELOG.md)
 - [All of my addons](https://betterdiscord.app/developer/DevEvil)
