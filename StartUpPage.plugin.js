@@ -1,6 +1,6 @@
 /**
  * @name StartUpPage
- * @version 1.2
+ * @version 1.3
  * @description StartUpPage lets you choose which page Discord opens to on startup.
  * @author DevEvil
  * @website https://devevil.com
@@ -14,7 +14,7 @@
 const config = {
     info: {
         name: "StartUpPage",
-        version: "1.2",
+        version: "1.3",
         description: "StartUpPage lets you choose which page Discord opens to on startup.",
         authors: [{
             name: "DevEvil",
@@ -38,6 +38,7 @@ class StartUpPage {
             serverId: "",
             channelServerId: "",
             channelChannelId: "",
+            voiceChannelId: "",
             discoveryPage: "servers",
             settingsPage: "account"
         };
@@ -55,15 +56,20 @@ class StartUpPage {
         };
         this.hasNavigated = false;
         this.isActive = false;
+        this.voiceJoined = false;
+        this.originalTextPath = null;
+        this._voiceRetryTimeout = null;
+        this._voiceFallbackTimeout = null;
     }
 
+    // ——— Settings I/O ———
     loadSettings() {
         try {
             const saved = Data.load("StartUpPage", "settings") || {};
             return Object.assign({}, this.defaultSettings, saved);
         } catch (err) {
             UI.showToast("Failed to load settings", { type: "error" });
-            return this.defaultSettings;
+            return Object.assign({}, this.defaultSettings);
         }
     }
 
@@ -75,6 +81,7 @@ class StartUpPage {
         }
     }
 
+    // ——— Lifecycle ———
     start() {
         if (this.isActive) return;
         this.isActive = true;
@@ -85,37 +92,186 @@ class StartUpPage {
     stop() {
         this.hasNavigated = false;
         this.isActive = false;
+        this.voiceJoined = false;
+        this.originalTextPath = null;
+        if (this._voiceRetryTimeout) clearTimeout(this._voiceRetryTimeout);
+        if (this._voiceFallbackTimeout) clearTimeout(this._voiceFallbackTimeout);
+        this._voiceRetryTimeout = null;
+        this._voiceFallbackTimeout = null;
+    }
+
+    // ——— Navigation helpers ———
+    getTransitionTo() {
+        // Prefer the known exported function first
+        const direct = Webpack.getByStrings?.(["transitionTo - Transitioning to"], { searchExports: true });
+        if (typeof direct === "function") return direct;
+
+        // Fallback to modules exposing transitionTo method
+        const router = Webpack.getModule?.(m => m && typeof m.transitionTo === "function", { searchExports: true });
+        if (router && typeof router.transitionTo === "function") return router.transitionTo;
+
+        return null;
+    }
+
+    performNavigation(path, toastLabel) {
+        const transitionTo = this.getTransitionTo();
+        try {
+            if (transitionTo) {
+                transitionTo(path);
+            } else {
+                window.location.pathname = path;
+            }
+            if (toastLabel) UI.showToast(`Navigated to ${toastLabel}`, { type: "success" });
+        } catch (err) {
+            UI.showToast("Failed to navigate to startup page", { type: "error" });
+        }
     }
 
     navigateToStartupPage() {
         const targetPath = this.getTargetPagePath();
         const currentPath = window.location.pathname;
 
-        if (currentPath === targetPath || this.hasNavigated) return;
-
-        this.hasNavigated = true;
-
-        const transitionTo = Webpack.getByStrings(["transitionTo - Transitioning to"],{ searchExports: true });
-
-        try {
-            if (transitionTo) {
-                transitionTo(targetPath);
-                UI.showToast(`Navigated to ${this.availablePages[this.settings.startupPage] || "Channel"}`, { type: "success" });
+        // Record original text path when using Channel startup
+        if (this.settings.startupPage === "channel") {
+            const sid = (this.settings.channelServerId || "").trim();
+            const tid = (this.settings.channelChannelId || "").trim();
+            if (this.isValidId(sid) && this.isValidId(tid)) {
+                this.originalTextPath = `/channels/${sid}/${tid}`;
             } else {
-                window.location.pathname = targetPath;
-                UI.showToast(`Using fallback | Navigated to ${this.availablePages[this.settings.startupPage] || "Channel"}`, { type: "success" });
+                this.originalTextPath = null;
             }
-        } catch (err) {
-            UI.showToast("Failed to navigate to startup page", { type: "error" });
+        } else {
+            this.originalTextPath = null;
         }
+
+        if (currentPath !== targetPath && !this.hasNavigated) {
+            this.hasNavigated = true;
+            const label = this.availablePages[this.settings.startupPage] || "Channel";
+            this.performNavigation(targetPath, label);
+        }
+
+        // Regardless of whether we navigated (already at target), handle voice join if needed
+        this.scheduleVoiceJoinIfNeeded();
+    }
+
+    // ——— Voice join ———
+    scheduleVoiceJoinIfNeeded() {
+        // Only for "Channel" startup and when Voice Channel ID is provided and valid
+        if (this.settings.startupPage !== "channel") return;
+
+        const serverId = (this.settings.channelServerId || "").trim();
+        const voiceId = (this.settings.voiceChannelId || "").trim();
+        if (!this.isValidId(serverId) || !this.isValidId(voiceId)) return;
+
+        // Start a brief initial delay to avoid getting stuck before voice join (let routing/UI settle)
+        let attempts = 0;
+        const maxAttempts = 5;
+        const initialDelay = 1200; // ms before first attempt to ensure Discord is ready
+        const baseRetryDelay = 900;
+
+        const tryJoin = () => {
+            if (this.voiceJoined || !this.isActive) return;
+            attempts++;
+
+            const joined = this.attemptVoiceJoin(serverId, voiceId);
+            if (joined) {
+                this.voiceJoined = true;
+                return;
+            }
+
+            if (attempts < maxAttempts) {
+                // Gentle exponential backoff
+                const nextDelay = Math.round(baseRetryDelay * (1 + attempts * 0.25));
+                this._voiceRetryTimeout = setTimeout(tryJoin, nextDelay);
+            } else {
+                // Fallback: temporarily navigate to voice channel path to trigger join,
+                // then navigate back to the original text channel to avoid "No text channel" state.
+                const backPath = this.originalTextPath;
+                const voicePath = `/channels/${serverId}/${voiceId}`;
+                this.performNavigation(voicePath);
+                // Slightly longer buffer so the voice session fully attaches before returning
+                this._voiceFallbackTimeout = setTimeout(() => {
+                    if (backPath) this.performNavigation(backPath);
+                    try { UI.showToast("Auto-joined voice channel (fallback)", { type: "success" }); } catch {}
+                    this.voiceJoined = true;
+                }, 1500);
+            }
+        };
+
+        try { UI.showToast("Preparing to auto-join voice…", { type: "info" }); } catch {}
+        this._voiceRetryTimeout = setTimeout(tryJoin, initialDelay);
+    }
+
+    attemptVoiceJoin(guildId, voiceChannelId) {
+        const safeToast = (msg, type = "info") => {
+            try { UI.showToast(msg, { type }); } catch { /* ignore */ }
+        };
+
+        // Strategy A: Voice Actions with selectVoiceChannel (non-disruptive to selected text)
+        try {
+            const VoiceActions = Webpack.getModule(m =>
+                m && typeof m.selectVoiceChannel === "function" && typeof m.disconnect === "function",
+                { searchExports: true }
+            );
+            if (VoiceActions) {
+                try {
+                    // Some builds accept (channelId, force = false)
+                    VoiceActions.selectVoiceChannel(voiceChannelId, false);
+                    safeToast("Joining voice…", "info");
+                    return true;
+                } catch { /* fall through */ }
+            }
+        } catch { /* ignore */ }
+
+        // Strategy B: joinVoiceChannel internal (if exported)
+        try {
+            const VoiceModule = Webpack.getModule(m =>
+                m && typeof m.joinVoiceChannel === "function" && typeof m.setSelfMute === "function",
+                { searchExports: true }
+            );
+            if (VoiceModule) {
+                try {
+                    // Try with options
+                    VoiceModule.joinVoiceChannel({
+                        channelId: voiceChannelId,
+                        guildId: guildId,
+                        options: { selfMute: false, selfDeaf: false },
+                        selfMute: false,
+                        selfDeaf: false
+                    });
+                    safeToast("Auto-joined voice channel", "success");
+                    return true;
+                } catch {
+                    // Minimal shape
+                    try {
+                        VoiceModule.joinVoiceChannel({
+                            channelId: voiceChannelId,
+                            guildId: guildId,
+                            selfMute: false,
+                            selfDeaf: false
+                        });
+                        safeToast("Auto-joined voice channel", "success");
+                        return true;
+                    } catch { /* fall through */ }
+                }
+            }
+        } catch { /* ignore */ }
+
+        // Do NOT select the voice channel via SelectedChannelActions to avoid losing the text channel view.
+        // We rely on the temporary route fallback in scheduleVoiceJoinIfNeeded if needed.
+        return false;
+    }
+
+    // ——— Target path resolver ———
+    isValidId(id) {
+        return /^\d+$/.test((id || "").trim());
     }
 
     getTargetPagePath() {
-        const validID = (id) => /^\d+$/.test(id.trim());
-
         switch (this.settings.startupPage) {
             case "friends":
                 return "/channels/@me";
+
             case "discover":
                 switch (this.settings.discoveryPage) {
                     case "servers":
@@ -127,6 +283,7 @@ class StartUpPage {
                     default:
                         return "/discovery/servers";
                 }
+
             case "settings":
                 switch (this.settings.settingsPage) {
                     case "account":
@@ -146,51 +303,62 @@ class StartUpPage {
                     default:
                         return "/settings/account";
                 }
+
             case "family":
                 return "/family-center";
+
             case "nitro":
                 return "/store";
+
             case "shop":
                 return "/shop";
-            case "dm":
-                const dmChannelId = this.settings.dmChannelId.trim();
-                if (validID(dmChannelId)) {
+
+            case "dm": {
+                const dmChannelId = (this.settings.dmChannelId || "").trim();
+                if (this.isValidId(dmChannelId)) {
                     return `/channels/@me/${dmChannelId}`;
                 }
                 UI.showToast("Invalid DM channel ID, using default page", { type: "error" });
                 return "/channels/@me";
-            case "server":
-                const serverId = this.settings.serverId.trim();
-                if (validID(serverId)) {
+            }
+
+            case "server": {
+                const serverId = (this.settings.serverId || "").trim();
+                if (this.isValidId(serverId)) {
+                    // Routing to /channels/{guild} lets Discord restore the last channel viewed
                     return `/channels/${serverId}`;
                 }
                 UI.showToast("Invalid server ID, using default page", { type: "error" });
                 return "/channels/@me";
-            case "channel":
-                const channelServerId = this.settings.channelServerId.trim();
-                const channelChannelId = this.settings.channelChannelId.trim();
-                if (validID(channelServerId) && validID(channelChannelId)) {
+            }
+
+            case "channel": {
+                const channelServerId = (this.settings.channelServerId || "").trim();
+                const channelChannelId = (this.settings.channelChannelId || "").trim();
+                if (this.isValidId(channelServerId) && this.isValidId(channelChannelId)) {
                     return `/channels/${channelServerId}/${channelChannelId}`;
                 }
                 UI.showToast("Invalid server or channel ID, using default page", { type: "error" });
                 return "/channels/@me";
+            }
+
             default:
                 return "/channels/@me";
         }
     }
 
+    // ——— Settings UI ———
     getSettingsPanel() {
-        const GuildStore = Webpack.getModule(m => m.getGuilds && m.getGuild);
-        const guilds = GuildStore ? GuildStore.getGuilds() : {};
+        const GuildStore = Webpack.getModule(m => m?.getGuilds && m?.getGuild);
+        const guilds = GuildStore ? (GuildStore.getGuilds?.() || {}) : {};
         const serverOptions = Object.values(guilds).map(guild => ({
             label: guild.name,
             value: guild.id
         }));
 
         const SettingsContent = () => {
-            return React.createElement("div", {
-                style: { position: "relative" }
-            },
+            return React.createElement("div", { style: { position: "relative" } },
+                // Help icon
                 React.createElement("svg", {
                     xmlns: "http://www.w3.org/2000/svg",
                     viewBox: "0 0 24 24",
@@ -289,11 +457,23 @@ class StartUpPage {
                                     type: "text",
                                     id: "channelChannelId",
                                     name: "Channel ID",
-                                    note: "Enter the Channel ID for a specific channel in the selected server (e.g., 844622406157205584). Only applies if \"Channel\" is selected as the Startup Page.",
+                                    note: "Enter the Channel ID for a specific text channel in the selected server (e.g., 844622406157205584). Only applies if \"Channel\" is selected as the Startup Page.",
                                     value: this.settings.channelChannelId,
                                     placeholder: "Channel ID",
                                     onChange: (value) => {
                                         this.settings.channelChannelId = value;
+                                        this.saveSettings();
+                                    }
+                                },
+                                {
+                                    type: "text",
+                                    id: "voiceChannelId",
+                                    name: "Voice Channel ID",
+                                    note: "Optional: Enter a Voice Channel ID from the same server. If provided, Discord will automatically join this voice channel on startup after navigating to your selected text channel.",
+                                    value: this.settings.voiceChannelId,
+                                    placeholder: "Voice Channel ID",
+                                    onChange: (value) => {
+                                        this.settings.voiceChannelId = value;
                                         this.saveSettings();
                                     }
                                 }
@@ -364,6 +544,7 @@ class StartUpPage {
         return React.createElement(SettingsContent);
     }
 
+    // ——— Help & Changelog ———
     openHelpModal() {
         const HelpContent = () => {
             return React.createElement("div", null,
@@ -384,8 +565,8 @@ class StartUpPage {
                     React.createElement("li", { style: { marginBottom: "10px" } }, "Select your preferred startup page from the \"Startup Page\" dropdown to customize where Discord opens on launch."),
                     React.createElement("li", { style: { marginBottom: "10px" } }, "For \"Direct Message/Group,\" enter the Channel ID in the \"Direct Message/Group Category\" section."),
                     React.createElement("li", { style: { marginBottom: "10px" } }, "For \"Server,\" choose a server from the dropdown in the \"Server Category\" section."),
-                    React.createElement("li", { style: { marginBottom: "10px" } }, "For \"Channel,\" select a server and enter the Channel ID in the \"Channel Category\" section."),
-                    React.createElement("li", { style: { marginBottom: "10px" } }, "Save changes and restart Discord to apply your startup page.")
+                    React.createElement("li", { style: { marginBottom: "10px" } }, "For \"Channel,\" select a server and enter the text Channel ID in the \"Channel Category\" section."),
+                    React.createElement("li", { style: { marginBottom: "10px" } }, "Optional: In the \"Channel Category\", you can also provide a Voice Channel ID (same server). If provided, the plugin will automatically join that voice channel on startup while keeping your selected text channel open.")
                 ),
                 React.createElement("h4", {
                     style: {
@@ -401,7 +582,7 @@ class StartUpPage {
                         listStyle: "circle"
                     }
                 },
-                    React.createElement("li", { style: { marginBottom: "10px" } }, "Enable Developer Mode (User Settings > Advanced > Developer Mode) to copy IDs by right-clicking users, servers, channels, or group DMs. Then select \"Copy Server ID\" for servers, and \"Copy Channel ID\" for channels, dms and groups.")
+                    React.createElement("li", { style: { marginBottom: "10px" } }, "Enable Developer Mode (User Settings > Advanced > Developer Mode). Right-click a server, channel (text or voice), DM, or group to copy its ID.")
                 ),
                 React.createElement("h4", {
                     style: {
@@ -418,7 +599,7 @@ class StartUpPage {
                     }
                 },
                     React.createElement("li", { style: { marginBottom: "10px" } },
-                        React.createElement("strong", null, "Friends: "), "Opens the Friends tab, displaying your online friends and Direct Messages."
+                        React.createElement("strong", null, "Friends: "), "Opens the Friends tab."
                     ),
                     React.createElement("li", { style: { marginBottom: "10px" } },
                         React.createElement("strong", null, "Direct Message/Group: "), "Opens a specific Direct Message or Group."
@@ -427,16 +608,16 @@ class StartUpPage {
                         React.createElement("strong", null, "Server: "), "Opens a specific server."
                     ),
                     React.createElement("li", { style: { marginBottom: "10px" } },
-                        React.createElement("strong", null, "Channel: "), "Opens a specific channel within a server."
+                        React.createElement("strong", null, "Channel: "), "Opens a specific text channel within a server. Can also auto-join a voice channel."
                     ),
                     React.createElement("li", { style: { marginBottom: "10px" } },
-                        React.createElement("strong", null, "Discover: "), "Opens to the Server Discovery page for finding new communities."
+                        React.createElement("strong", null, "Discover: "), "Opens Server Discovery."
                     ),
                     React.createElement("li", { style: { marginBottom: "10px" } },
-                        React.createElement("strong", null, "Nitro: "), "Opens to the Nitro store page for subscription features."
+                        React.createElement("strong", null, "Nitro: "), "Opens the Nitro store."
                     ),
                     React.createElement("li", { style: { marginBottom: "10px" } },
-                        React.createElement("strong", null, "Shop: "), "Opens to the Discord shop for purchasing avatar decoration, profile effect, and etc."
+                        React.createElement("strong", null, "Shop: "), "Opens the Discord shop."
                     )
                 )
             );
@@ -455,10 +636,24 @@ class StartUpPage {
     showChangelog() {
         const changes = [
             {
+                title: "Version 1.3",
+                type: "added",
+                items: [
+                    "Added Voice Channel ID in Channel Category. If provided, the plugin will automatically join that voice channel on startup.",
+                    "Improved navigation reliability with multiple router fallbacks.",
+                    "Minor stability fixes and safer ID validation.",
+                    "Resolved an issue where navigating to a text channel could show \"No text channel\" after startup.",
+                    "Voice auto-join no longer changes your selected text channel; it joins in the background.",
+                    "Improved fallback logic to temporarily open the voice route then return to your text channel if needed.",
+                    "Added an initial delay before auto-joining voice to prevent getting stuck during app startup.",
+                    "Smoother voice joining with gentle retry backoff and a longer fallback settle time."
+                ]
+            },
+            {
                 title: "Version 1.2",
                 type: "added",
                 items: [
-                    "Added **Settings** and **Family Center** as new startup page options.",
+                    "Added Settings and Family Center as new startup page options.",
                     "Added a \"Settings Page\" setting that allows you to choose which specific settings page loads when \"Settings\" is set as the startup page."
                 ]
             },
@@ -466,7 +661,7 @@ class StartUpPage {
                 title: "Version 1.1",
                 type: "added",
                 items: [
-                    "Added a \"Discovery Page\" setting that allows you to choose which specific discovery page(Servers, Applications, Quests) loads when \"Discover\" is set as the startup page."
+                    "Added a \"Discovery Page\" setting that allows you to choose which specific discovery page (Servers, Applications, Quests) loads when \"Discover\" is set as the startup page."
                 ]
             },
             {
@@ -478,16 +673,10 @@ class StartUpPage {
             }
         ];
 
-        const options = {
+        UI.showChangelogModal({
             title: "StartUpPage Plugin",
             subtitle: "By DevEvil",
-            changes: changes,
-        };
-
-        UI.showChangelogModal({
-            title: options.title,
-            subtitle: options.subtitle,
-            changes: options.changes
+            changes: changes
         });
     }
 
