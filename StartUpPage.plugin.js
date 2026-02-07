@@ -1,6 +1,6 @@
 /**
  * @name StartUpPage
- * @version 1.2
+ * @version 1.3
  * @description StartUpPage lets you choose which page Discord opens to on startup.
  * @author DevEvil
  * @website https://devevil.com
@@ -14,7 +14,7 @@
 const config = {
     info: {
         name: "StartUpPage",
-        version: "1.2",
+        version: "1.3",
         description: "StartUpPage lets you choose which page Discord opens to on startup.",
         authors: [{
             name: "DevEvil",
@@ -48,6 +48,7 @@ class StartUpPage {
             "server": "Server",
             "channel": "Channel",
             "settings": "Settings",
+            "quests": "Quests",
             "family": "Family Center",
             "discover": "Discover",
             "nitro": "Nitro",
@@ -122,8 +123,6 @@ class StartUpPage {
                         return "/discovery/servers";
                     case "applications":
                         return "/discovery/applications";
-                    case "quests":
-                        return "/discovery/quests";
                     default:
                         return "/discovery/servers";
                 }
@@ -152,6 +151,8 @@ class StartUpPage {
                 return "/store";
             case "shop":
                 return "/shop";
+            case "quests":
+                return "/quest-home";
             case "dm":
                 const dmChannelId = this.settings.dmChannelId.trim();
                 if (validID(dmChannelId)) {
@@ -196,7 +197,7 @@ class StartUpPage {
                     viewBox: "0 0 24 24",
                     width: "24",
                     height: "24",
-                    fill: "var(--interactive-normal)",
+                    fill: "var(--text-default)",
                     style: {
                         position: "absolute",
                         top: "40px",
@@ -314,8 +315,7 @@ class StartUpPage {
                                     value: this.settings.discoveryPage,
                                     options: [
                                         { name: "Servers", value: "servers" },
-                                        { name: "Applications", value: "applications" },
-                                        { name: "Quests", value: "quests" }
+                                        { name: "Applications", value: "applications" }
                                     ],
                                     onChange: (value) => {
                                         this.settings.discoveryPage = value;
@@ -430,6 +430,9 @@ class StartUpPage {
                         React.createElement("strong", null, "Channel: "), "Opens a specific channel within a server."
                     ),
                     React.createElement("li", { style: { marginBottom: "10px" } },
+                        React.createElement("strong", null, "Quests: "), "Opens to the Quests page."
+                    ),
+                    React.createElement("li", { style: { marginBottom: "10px" } },
                         React.createElement("strong", null, "Discover: "), "Opens to the Server Discovery page for finding new communities."
                     ),
                     React.createElement("li", { style: { marginBottom: "10px" } },
@@ -454,6 +457,14 @@ class StartUpPage {
 
     showChangelog() {
         const changes = [
+            {
+                title: "Version 1.3",
+                type: "fixed",
+                items: [
+                    "Fixed an issue where the **Quest** page redirected to an outdated address.",
+                    "Moved the **Quest** page from **Discovery** to the **Startup Page** dropdown."
+                ]
+            },
             {
                 title: "Version 1.2",
                 type: "added",
