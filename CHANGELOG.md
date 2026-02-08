@@ -1,3 +1,7 @@
+# StartUpPage v1.3 - Feb 07, 2026
+- **Fixed an issue where the Quest page redirected to an outdated address.**
+- **Moved the Quest page from Discovery to the Startup Page dropdown.**
+
 # StartUpPage v1.2 - May 15, 2025
 - **Added Settings and Family Center as new startup page options.**
 - **Added a Settings Page setting that allows you to choose which specific settings page loads when Settings is set as the startup page.**
