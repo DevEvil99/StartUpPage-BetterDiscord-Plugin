@@ -1,4 +1,4 @@
-# StartUpPage v1.3 - Feb 07, 2026
+# StartUpPage v1.3 - February 07, 2026
 - **Fixed an issue where the Quest page redirected to an outdated address.**
 - **Moved the Quest page from Discovery to the Startup Page dropdown.**
 
