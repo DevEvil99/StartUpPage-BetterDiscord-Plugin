@@ -1,3 +1,6 @@
+# StartUpPage v1.4 - November 21, 2026
+- **Discord's original start page no longer remains as the first history entry.**
+
 # StartUpPage v1.3 - February 07, 2026
 - **Fixed an issue where the Quest page redirected to an outdated address.**
 - **Moved the Quest page from Discovery to the Startup Page dropdown.**

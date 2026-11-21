@@ -1,6 +1,6 @@
 /**
  * @name StartUpPage
- * @version 1.3
+ * @version 1.4
  * @description StartUpPage lets you choose which page Discord opens to on startup.
  * @author DevEvil
  * @website https://devevil.com
@@ -14,7 +14,7 @@
 const config = {
     info: {
         name: "StartUpPage",
-        version: "1.3",
+        version: "1.4",
         description: "StartUpPage lets you choose which page Discord opens to on startup.",
         authors: [{
             name: "DevEvil",
@@ -98,6 +98,7 @@ class StartUpPage {
 
         const transitionTo = Webpack.getByStrings(["transitionTo - Transitioning to"],{ searchExports: true });
 
+        window.history.replaceState({}, '', targetPath);
         try {
             if (transitionTo) {
                 transitionTo(targetPath);
